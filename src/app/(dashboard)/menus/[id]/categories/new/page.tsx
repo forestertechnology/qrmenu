@@ -1,0 +1,125 @@
+import { Metadata } from "next";
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { redirect, notFound } from "next/navigation";
+import { CategoryFormWrapper } from "./CategoryFormWrapper";
+
+export const metadata: Metadata = {
+  title: "Create Category - On Our Menu",
+  description: "Create a new category for your menu.",
+};
+
+interface NewCategoryPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default async function NewCategoryPage({ params }: NewCategoryPageProps) {
+  const supabase = createServerComponentClient({ cookies });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Get user's business profile
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  // If they don't have a business profile, redirect to onboarding
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // Get the menu
+  const { data: menu } = await supabase
+    .from("menus")
+    .select("*")
+    .eq("id", params.id)
+    .eq("business_id", business.id)
+    .single();
+
+  // If menu doesn't exist or doesn't belong to this business
+  if (!menu) {
+    notFound();
+  }
+
+  // Get user's subscription plan
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_plan")
+    .eq("id", user.id)
+    .single();
+
+  // Get menu's categories to check against limit
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("menu_id", menu.id);
+
+  // Check if user has reached their category limit
+  const categoryLimit = profile?.subscription_plan === "advanced" ? 20 : 5;
+  if (categories && categories.length >= categoryLimit) {
+    redirect("/pricing?reason=category_limit");
+  }
+
+  // Get the highest display order to place new category at the end
+  const { data: lastCategory } = await supabase
+    .from("categories")
+    .select("display_order")
+    .eq("menu_id", menu.id)
+    .order("display_order", { ascending: false })
+    .limit(1)
+    .single();
+
+  const nextDisplayOrder = lastCategory ? lastCategory.display_order + 1 : 0;
+
+  return (
+    <div>
+      <div className="md:flex md:items-center md:justify-between">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+            Create New Category
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Add a new category to organize your menu items. Categories help
+            customers find what they&apos;re looking for more easily.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <div className="md:grid md:grid-cols-3 md:gap-6">
+          <div className="md:col-span-1">
+            <div className="px-4 sm:px-0">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">
+                Category Details
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
+                This information will be displayed at the top of your category
+                section when customers view your menu.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 md:col-span-2 md:mt-0">
+            <div className="shadow sm:rounded-md">
+              <div className="bg-white px-4 py-5 sm:p-6">
+                <CategoryFormWrapper 
+                  menuId={menu.id} 
+                  initialDisplayOrder={nextDisplayOrder} 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

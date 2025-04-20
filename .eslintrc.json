@@ -1,0 +1,19 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "@typescript-eslint/no-var-requires": "off"
+  },
+  "overrides": [
+    {
+      "files": ["*.config.js", "*.config.mjs", "*.config.cjs", "postcss.config.js", "tailwind.config.js"],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off",
+        "no-restricted-syntax": "off",
+        "@typescript-eslint/no-require-imports": "off",
+        "import/no-commonjs": "off",
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["*.config.js", "postcss.config.js", "tailwind.config.js"]
+}
